@@ -1,0 +1,44 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"   # http  -> http://localhost:5000/swagger
+      - "5001:8081"   # https -> https://localhost:5001/swagger
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:8081;http://+:8080
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=CertPass123!
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=1c_integration;Username=postgres;Password=postgres
+      # 1С:Фреш — переопределите без пересборки образа, либо закомментируйте чтобы бралось из appsettings.json
+      - OneS__BaseUrl=https://msk1.1cfresh.com/a/sbm/4191671/ru/
+      - OneS__UserName=odata.user
+      - OneS__Password=1C_vcmail@list.ru
+    volumes:
+      - ${USERPROFILE}/.aspnet/https:/https:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: 1c_integration
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d 1c_integration"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pgdata:
